@@ -1,0 +1,6 @@
+{
+  "version": "v1",
+  "mode": "deny-by-default",
+  "defaultDenyReason": "server is in quarantine mode",
+  "rules": []
+}

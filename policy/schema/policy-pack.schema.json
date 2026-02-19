@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gox.dev/schema/policy-pack-v1.json",
+  "title": "Gox Policy Pack v1",
+  "type": "object",
+  "required": [
+    "version",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "allow-all",
+        "deny-by-default"
+      ]
+    },
+    "defaultDenyReason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": [
+        "match",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/match"
+        },
+        "effect": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "requiresApproval": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "integer"
+        }
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "string"
+        },
+        "actorPrefix": {
+          "type": "string"
+        },
+        "actionId": {
+          "type": "string"
+        },
+        "actionPrefix": {
+          "type": "string"
+        },
+        "sideEffects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "none",
+              "read",
+              "write"
+            ]
+          }
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

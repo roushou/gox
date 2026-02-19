@@ -1,0 +1,61 @@
+{
+  "version": "v1",
+  "mode": "deny-by-default",
+  "defaultDenyReason": "action not explicitly allowed for local-dev profile",
+  "rules": [
+    {
+      "name": "allow health checks",
+      "match": {
+        "actionId": "core.ping"
+      },
+      "effect": "allow",
+      "priority": 100
+    },
+    {
+      "name": "allow workspace diagnostics",
+      "match": {
+        "actionId": "project.workspace_stats"
+      },
+      "effect": "allow",
+      "priority": 100
+    },
+    {
+      "name": "allow read-only roblox queries",
+      "match": {
+        "actionPrefix": "roblox.",
+        "sideEffects": [
+          "read"
+        ]
+      },
+      "effect": "allow",
+      "priority": 90
+    },
+    {
+      "name": "allow script execute dry-run previews",
+      "match": {
+        "actionId": "roblox.script_execute",
+        "dryRun": true
+      },
+      "effect": "allow",
+      "priority": 120
+    },
+    {
+      "name": "deny script execute by default",
+      "match": {
+        "actionId": "roblox.script_execute"
+      },
+      "effect": "deny",
+      "reason": "script execution requires explicit local approval policy",
+      "priority": 1000
+    },
+    {
+      "name": "deny destructive instance deletes",
+      "match": {
+        "actionId": "roblox.instance_delete"
+      },
+      "effect": "deny",
+      "reason": "instance deletion requires dedicated approval",
+      "priority": 1000
+    }
+  ]
+}

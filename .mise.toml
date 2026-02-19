@@ -1,0 +1,40 @@
+[tools]
+go = "1.25.6"
+
+[tasks.test]
+description = "Run all Go tests"
+run = "go test ./..."
+
+[tasks.test-race]
+description = "Run all Go tests with race detector"
+run = "go test -race ./..."
+
+[tasks.build]
+description = "Build gox binary"
+run = "go build -o bin/gox ./cmd/gox"
+
+[tasks.run]
+description = "Run gox MCP server"
+run = "go run ./cmd/gox"
+
+[tasks.run-bridge]
+description = "Run gox in Roblox relay-http bridge mode"
+run = "GOX_BRIDGE_ENABLED=true GOX_BRIDGE_NETWORK=relay-http GOX_BRIDGE_RELAY_ADDRESS=127.0.0.1:47012 GOX_BRIDGE_AUTH=true GOX_BRIDGE_AUTH_TOKEN=${GOX_BRIDGE_AUTH_TOKEN:-replace-me} go run ./cmd/gox"
+
+[tasks."plugin:sourcemap"]
+description = "Generate Rojo sourcemap for Luau LSP"
+run = "rojo sourcemap plugin/roblox/default.project.json -o plugin/roblox/sourcemap.json"
+
+[tasks."plugin:build"]
+description = "Build Roblox Studio plugin (.rbxmx) with Rojo"
+depends = ["plugin:sourcemap"]
+run = "mkdir -p plugin/roblox/dist && rojo build plugin/roblox/default.project.json -o plugin/roblox/dist/GoxBridge.rbxmx"
+
+[tasks."plugin:install"]
+description = "Build and install plugin to Roblox Studio plugins folder"
+depends = ["plugin:build"]
+run = """
+mkdir -p "$HOME/Documents/Roblox/Plugins"
+cp plugin/roblox/dist/GoxBridge.rbxmx "$HOME/Documents/Roblox/Plugins/GoxBridge.rbxmx"
+echo "Installed to ~/Documents/Roblox/Plugins/GoxBridge.rbxmx"
+"""

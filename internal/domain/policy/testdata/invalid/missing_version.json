@@ -1,0 +1,11 @@
+{
+  "mode": "deny-by-default",
+  "rules": [
+    {
+      "match": {
+        "actionId": "core.ping"
+      },
+      "effect": "allow"
+    }
+  ]
+}

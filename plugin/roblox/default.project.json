@@ -1,0 +1,12 @@
+{
+	"name": "GoxBridge",
+	"tree": {
+		"$className": "Folder",
+		"bridge": {
+			"$path": "src/bridge"
+		},
+		"plugin": {
+			"$path": "src/plugin"
+		}
+	}
+}

@@ -1,0 +1,5 @@
+plugin/roblox/dist/
+plugin/roblox/sourcemap.json
+
+bin/
+.gox/

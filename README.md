@@ -61,6 +61,11 @@ Requires `GOX_BRIDGE_ENABLED=true`.
 | `roblox.instance_get` | Get instance details |
 | `roblox.instance_list_children` | List child instances |
 | `roblox.instance_find` | Find instances by query |
+| `roblox.scene_snapshot` | Snapshot scene subtree metadata |
+| `roblox.scene_plan` | Build deterministic mutation plan |
+| `roblox.scene_apply` | Apply scene plan transactionally |
+| `roblox.scene_validate` | Run scene quality gates |
+| `roblox.scene_capture` | Capture scene thumbnail when supported |
 
 ### Workflow Tools
 

@@ -475,6 +475,147 @@ func TestBridgeE2EReadQueryOperations(t *testing.T) {
 	}
 }
 
+func TestBridgeE2ESceneOperations(t *testing.T) {
+	requests := make(chan roblox.Request, 12)
+	addr, stop := startBridgeTestServer(t, false, "e2e-token", func(req roblox.Request) roblox.Response {
+		requests <- req
+		switch req.Operation {
+		case roblox.OpSceneSnapshot:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload:       map[string]any{"nodeCount": 5, "rootPath": "Workspace.MapRoot"},
+				Timestamp:     time.Now().UTC(),
+			}
+		case roblox.OpScenePlan:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload: map[string]any{
+					"version": "scene-plan.v1",
+					"steps":   []any{},
+				},
+				Timestamp: time.Now().UTC(),
+			}
+		case roblox.OpSceneApply:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload: map[string]any{
+					"applied":     true,
+					"diffSummary": "applied 0 scene steps",
+				},
+				Timestamp: time.Now().UTC(),
+			}
+		case roblox.OpSceneValidate:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload:       map[string]any{"valid": true, "issueCount": 0},
+				Timestamp:     time.Now().UTC(),
+			}
+		case roblox.OpSceneCapture:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload:       map[string]any{"captured": false},
+				Timestamp:     time.Now().UTC(),
+			}
+		default:
+			return roblox.Response{
+				RequestID:     req.RequestID,
+				CorrelationID: req.CorrelationID,
+				Success:       true,
+				Payload:       map[string]any{"ok": true},
+				Timestamp:     time.Now().UTC(),
+			}
+		}
+	})
+	defer stop()
+
+	client, cleanup := newBridgeE2EServer(t, addr, "e2e-token")
+	defer cleanup()
+
+	snapshotResp := callTool(t, client, "roblox.scene_snapshot", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+		"maxDepth": 3,
+	}, "corr-e2e-scene-1", false)
+	if snapshotResp.Error != nil {
+		t.Fatalf("scene_snapshot failed: %#v", snapshotResp.Error)
+	}
+
+	definition := map[string]any{
+		"nodes": []any{
+			map[string]any{"id": "spawn", "className": "Part", "name": "SpawnPad"},
+		},
+	}
+	planResp := callTool(t, client, "roblox.scene_plan", map[string]any{
+		"rootPath":   "Workspace.MapRoot",
+		"definition": definition,
+	}, "corr-e2e-scene-2", false)
+	if planResp.Error != nil {
+		t.Fatalf("scene_plan failed: %#v", planResp.Error)
+	}
+
+	applyResp := callTool(t, client, "roblox.scene_apply", map[string]any{
+		"rootPath":   "Workspace.MapRoot",
+		"definition": definition,
+	}, "corr-e2e-scene-3", true)
+	if applyResp.Error != nil {
+		t.Fatalf("scene_apply failed: %#v", applyResp.Error)
+	}
+
+	validateResp := callTool(t, client, "roblox.scene_validate", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+	}, "corr-e2e-scene-4", false)
+	if validateResp.Error != nil {
+		t.Fatalf("scene_validate failed: %#v", validateResp.Error)
+	}
+
+	captureResp := callTool(t, client, "roblox.scene_capture", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+		"width":    640,
+		"height":   360,
+	}, "corr-e2e-scene-5", false)
+	if captureResp.Error != nil {
+		t.Fatalf("scene_capture failed: %#v", captureResp.Error)
+	}
+
+	observed := map[roblox.Operation]roblox.Request{}
+	for i := 0; i < 5; i++ {
+		select {
+		case req := <-requests:
+			observed[req.Operation] = req
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for scene operation %d", i+1)
+		}
+	}
+	if _, ok := observed[roblox.OpSceneSnapshot]; !ok {
+		t.Fatalf("did not observe scene.snapshot request: %#v", observed)
+	}
+	if _, ok := observed[roblox.OpScenePlan]; !ok {
+		t.Fatalf("did not observe scene.plan request: %#v", observed)
+	}
+	applyReq, ok := observed[roblox.OpSceneApply]
+	if !ok {
+		t.Fatalf("did not observe scene.apply request: %#v", observed)
+	}
+	if applyReq.Payload["dryRun"] != true {
+		t.Fatalf("expected scene.apply dryRun=true payload, got %#v", applyReq.Payload)
+	}
+	if _, ok := observed[roblox.OpSceneValidate]; !ok {
+		t.Fatalf("did not observe scene.validate request: %#v", observed)
+	}
+	if _, ok := observed[roblox.OpSceneCapture]; !ok {
+		t.Fatalf("did not observe scene.capture request: %#v", observed)
+	}
+}
+
 func TestBridgeE2EAuthFailure(t *testing.T) {
 	addr, stop := startBridgeTestServer(t, false, "expected-token", func(req roblox.Request) roblox.Response {
 		return roblox.Response{
@@ -544,6 +685,21 @@ func newBridgeE2EServer(t *testing.T, bridgeAddr string, token string) (*sdkmcp.
 	}
 	if err := registry.Register(actions.NewInstanceFindAction(bridgeClient)); err != nil {
 		t.Fatalf("register instance find action: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneSnapshotAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene snapshot action: %v", err)
+	}
+	if err := registry.Register(actions.NewScenePlanAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene plan action: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneApplyAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene apply action: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneValidateAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene validate action: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneCaptureAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene capture action: %v", err)
 	}
 
 	executor := usecase.NewExecuteActionService(

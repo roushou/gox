@@ -347,6 +347,143 @@ func TestRelayHTTPBridgeE2EReadQueryOperations(t *testing.T) {
 	}
 }
 
+func TestRelayHTTPBridgeE2ESceneOperations(t *testing.T) {
+	const token = "relay-e2e-token-scene"
+	hub := roblox.NewRelayHub(token)
+	relay := roblox.NewRelayHTTPServer("127.0.0.1:0", hub, token, slog.Default())
+	httpSrv := httptest.NewServer(relay.Handler())
+	defer httpSrv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	requests := make(chan roblox.Request, 20)
+	errCh := make(chan error, 1)
+	go runPluginRelayClient(ctx, httpSrv.URL, token, requests, errCh)
+
+	waitForRelaySession(t, hub)
+
+	registry := action.NewInMemoryRegistry()
+	transport := roblox.NewRelayTransport(hub, roblox.TCPTransportOptions{
+		AuthToken:   token,
+		RequireAuth: true,
+		ClientName:  "gox-relay-e2e-scene",
+	})
+	bridgeClient := roblox.NewClient(transport, slog.Default(), 2*time.Second)
+	defer func() { _ = bridgeClient.Close() }()
+
+	if err := registry.Register(actions.NewSceneSnapshotAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene snapshot: %v", err)
+	}
+	if err := registry.Register(actions.NewScenePlanAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene plan: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneApplyAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene apply: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneValidateAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene validate: %v", err)
+	}
+	if err := registry.Register(actions.NewSceneCaptureAction(bridgeClient)); err != nil {
+		t.Fatalf("register scene capture: %v", err)
+	}
+
+	executor := usecase.NewExecuteActionService(
+		registry,
+		policy.AllowAllEvaluator{},
+		runlog.NewInMemoryStore(),
+		slog.Default(),
+		3*time.Second,
+		idSequence(
+			"run-scn-1", "run-scn-2", "run-scn-3", "run-scn-4",
+			"run-scn-5", "run-scn-6", "run-scn-7", "run-scn-8",
+		),
+	)
+	server := NewServer("gox-relay-e2e-scene", nil, nil, slog.Default(), registry, executor)
+	clientSession, cleanup := connectMCPClient(t, server)
+	defer cleanup()
+
+	definition := map[string]any{
+		"nodes": []any{
+			map[string]any{"id": "spawn", "className": "Part", "name": "SpawnPad"},
+		},
+	}
+
+	snapshotResp := callTool(t, clientSession, "roblox.scene_snapshot", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+		"maxDepth": 3,
+	}, "corr-relay-scene-1", false)
+	if snapshotResp.Error != nil {
+		t.Fatalf("scene_snapshot failed: %#v", snapshotResp.Error)
+	}
+
+	planResp := callTool(t, clientSession, "roblox.scene_plan", map[string]any{
+		"rootPath":   "Workspace.MapRoot",
+		"definition": definition,
+	}, "corr-relay-scene-2", false)
+	if planResp.Error != nil {
+		t.Fatalf("scene_plan failed: %#v", planResp.Error)
+	}
+
+	applyResp := callTool(t, clientSession, "roblox.scene_apply", map[string]any{
+		"rootPath":   "Workspace.MapRoot",
+		"definition": definition,
+	}, "corr-relay-scene-3", true)
+	if applyResp.Error != nil {
+		t.Fatalf("scene_apply failed: %#v", applyResp.Error)
+	}
+
+	validateResp := callTool(t, clientSession, "roblox.scene_validate", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+	}, "corr-relay-scene-4", false)
+	if validateResp.Error != nil {
+		t.Fatalf("scene_validate failed: %#v", validateResp.Error)
+	}
+
+	captureResp := callTool(t, clientSession, "roblox.scene_capture", map[string]any{
+		"rootPath": "Workspace.MapRoot",
+		"width":    640,
+		"height":   360,
+	}, "corr-relay-scene-5", false)
+	if captureResp.Error != nil {
+		t.Fatalf("scene_capture failed: %#v", captureResp.Error)
+	}
+
+	observed := map[roblox.Operation]roblox.Request{}
+	deadline := time.After(3 * time.Second)
+	for {
+		if _, ok := observed[roblox.OpSceneSnapshot]; ok {
+			if _, ok := observed[roblox.OpScenePlan]; ok {
+				if _, ok := observed[roblox.OpSceneApply]; ok {
+					if _, ok := observed[roblox.OpSceneValidate]; ok {
+						if _, ok := observed[roblox.OpSceneCapture]; ok {
+							break
+						}
+					}
+				}
+			}
+		}
+		select {
+		case req := <-requests:
+			observed[req.Operation] = req
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("plugin relay client error: %v", err)
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for relay scene operations: %#v", observed)
+		}
+	}
+
+	applyReq, ok := observed[roblox.OpSceneApply]
+	if !ok {
+		t.Fatalf("missing scene.apply request: %#v", observed)
+	}
+	if applyReq.Payload["dryRun"] != true {
+		t.Fatalf("expected scene.apply dryRun=true payload, got %#v", applyReq.Payload)
+	}
+}
+
 func waitForRelaySession(t *testing.T, hub *roblox.RelayHub) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

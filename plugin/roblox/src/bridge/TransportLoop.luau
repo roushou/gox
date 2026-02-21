@@ -150,6 +150,7 @@ function TransportLoop:_handleRequest(request: BridgeRequest): BridgeResponse
 				"typed-values.v2",
 				"instance-id",
 				"idempotency-key",
+				"scene.v1",
 			},
 		})
 		self:_cacheResponse(cacheKey, response)

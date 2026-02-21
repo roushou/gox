@@ -216,6 +216,21 @@ func registerActions(cfg config.Config, registry action.Registry, robloxClient *
 		if err := registry.Register(actions.NewInstanceFindAction(robloxClient)); err != nil {
 			return fmt.Errorf("register roblox.instance_find: %w", err)
 		}
+		if err := registry.Register(actions.NewSceneSnapshotAction(robloxClient)); err != nil {
+			return fmt.Errorf("register roblox.scene_snapshot: %w", err)
+		}
+		if err := registry.Register(actions.NewScenePlanAction(robloxClient)); err != nil {
+			return fmt.Errorf("register roblox.scene_plan: %w", err)
+		}
+		if err := registry.Register(actions.NewSceneApplyAction(robloxClient)); err != nil {
+			return fmt.Errorf("register roblox.scene_apply: %w", err)
+		}
+		if err := registry.Register(actions.NewSceneValidateAction(robloxClient)); err != nil {
+			return fmt.Errorf("register roblox.scene_validate: %w", err)
+		}
+		if err := registry.Register(actions.NewSceneCaptureAction(robloxClient)); err != nil {
+			return fmt.Errorf("register roblox.scene_capture: %w", err)
+		}
 	}
 	return nil
 }

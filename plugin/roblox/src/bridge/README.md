@@ -26,6 +26,11 @@ This folder contains the Roblox Studio plugin-side bridge counterpart for Gox.
 - `instance.get`
 - `instance.list_children`
 - `instance.find`
+- `scene.snapshot`
+- `scene.plan`
+- `scene.apply`
+- `scene.validate`
+- `scene.capture`
 
 Pagination notes:
 - `instance.list_children` accepts `limit` and `offset` and returns `hasMore` plus `nextOffset`.

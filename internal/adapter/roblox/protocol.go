@@ -23,6 +23,11 @@ const (
 	OpInstanceGet          Operation = "instance.get"
 	OpInstanceListChildren Operation = "instance.list_children"
 	OpInstanceFind         Operation = "instance.find"
+	OpSceneSnapshot        Operation = "scene.snapshot"
+	OpScenePlan            Operation = "scene.plan"
+	OpSceneApply           Operation = "scene.apply"
+	OpSceneValidate        Operation = "scene.validate"
+	OpSceneCapture         Operation = "scene.capture"
 )
 
 type Request struct {

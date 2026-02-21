@@ -499,3 +499,172 @@ func TestInstanceFindActionRejectsLimitAndMaxResultsTogether(t *testing.T) {
 		t.Fatalf("expected validation fault, got %v", err)
 	}
 }
+
+func TestSceneSnapshotActionUsesBridgeOperation(t *testing.T) {
+	bridge := &fakeBridgeInvoker{
+		resp: roblox.Response{
+			RequestID:     "req-1",
+			CorrelationID: "corr-1",
+			Success:       true,
+			Payload: map[string]any{
+				"nodeCount": 3,
+			},
+			Timestamp: time.Now().UTC(),
+		},
+	}
+	a := NewSceneSnapshotAction(bridge)
+	_, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+			"maxDepth": 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if bridge.operation != roblox.OpSceneSnapshot {
+		t.Fatalf("unexpected operation %q", bridge.operation)
+	}
+}
+
+func TestScenePlanActionRequiresDefinition(t *testing.T) {
+	a := NewScenePlanAction(&fakeBridgeInvoker{})
+	_, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	f, ok := fault.As(err)
+	if !ok || f.Code != fault.CodeValidation {
+		t.Fatalf("expected validation fault, got %v", err)
+	}
+}
+
+func TestScenePlanActionUsesBridgeOperation(t *testing.T) {
+	bridge := &fakeBridgeInvoker{
+		resp: roblox.Response{
+			RequestID:     "req-1",
+			CorrelationID: "corr-1",
+			Success:       true,
+			Payload: map[string]any{
+				"version": "scene-plan.v1",
+			},
+			Timestamp: time.Now().UTC(),
+		},
+	}
+	a := NewScenePlanAction(bridge)
+	_, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+			"definition": map[string]any{
+				"nodes": []any{
+					map[string]any{"id": "spawn", "className": "Part"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if bridge.operation != roblox.OpScenePlan {
+		t.Fatalf("unexpected operation %q", bridge.operation)
+	}
+}
+
+func TestSceneApplyActionUsesBridgeOperation(t *testing.T) {
+	bridge := &fakeBridgeInvoker{
+		resp: roblox.Response{
+			RequestID:     "req-1",
+			CorrelationID: "corr-1",
+			Success:       true,
+			Payload: map[string]any{
+				"applied":     true,
+				"diffSummary": "applied 2 scene steps",
+			},
+			Timestamp: time.Now().UTC(),
+		},
+	}
+	a := NewSceneApplyAction(bridge)
+	out, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+			"definition": map[string]any{
+				"nodes": []any{
+					map[string]any{"id": "spawn", "className": "Part"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if bridge.operation != roblox.OpSceneApply {
+		t.Fatalf("unexpected operation %q", bridge.operation)
+	}
+	if out.Diff == nil || out.Diff.Summary == "" {
+		t.Fatalf("expected diff summary, got %#v", out.Diff)
+	}
+}
+
+func TestSceneValidateActionUsesBridgeOperation(t *testing.T) {
+	bridge := &fakeBridgeInvoker{
+		resp: roblox.Response{
+			RequestID:     "req-1",
+			CorrelationID: "corr-1",
+			Success:       true,
+			Payload: map[string]any{
+				"valid": true,
+			},
+			Timestamp: time.Now().UTC(),
+		},
+	}
+	a := NewSceneValidateAction(bridge)
+	_, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if bridge.operation != roblox.OpSceneValidate {
+		t.Fatalf("unexpected operation %q", bridge.operation)
+	}
+}
+
+func TestSceneCaptureActionUsesBridgeOperation(t *testing.T) {
+	bridge := &fakeBridgeInvoker{
+		resp: roblox.Response{
+			RequestID:     "req-1",
+			CorrelationID: "corr-1",
+			Success:       true,
+			Payload: map[string]any{
+				"captured": false,
+			},
+			Timestamp: time.Now().UTC(),
+		},
+	}
+	a := NewSceneCaptureAction(bridge)
+	_, err := a.Handle(context.Background(), action.Request{
+		CorrelationID: "corr-1",
+		Input: map[string]any{
+			"rootPath": "Workspace.MapRoot",
+			"width":    512,
+			"height":   512,
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if bridge.operation != roblox.OpSceneCapture {
+		t.Fatalf("unexpected operation %q", bridge.operation)
+	}
+}

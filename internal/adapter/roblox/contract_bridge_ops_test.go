@@ -36,6 +36,11 @@ func TestBridgeSupportsProtocolOperations(t *testing.T) {
 		OpInstanceGet,
 		OpInstanceListChildren,
 		OpInstanceFind,
+		OpSceneSnapshot,
+		OpScenePlan,
+		OpSceneApply,
+		OpSceneValidate,
+		OpSceneCapture,
 	}
 	for _, op := range expectedOps {
 		needle := `request.operation == "` + string(op) + `"`
